@@ -38,11 +38,11 @@ def home():
     """List all available api routes."""
     return(
         f"Available Routes:<br/>" # Returns a string with available routes/ endpoints
-        f"/api/v1.0/precipitations<br/>" 
+        f"/api/v1.0/precipitation<br/>" 
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
         f"/api/v1.0/<start><br/>"
-        f"/api/v1.0?<start><end>"
+        f"/api/v1.0<start>/<end>"
     )   
 
 
@@ -53,10 +53,10 @@ def home():
 @app.route("/api/v1.0/precipitation")
 def precipitation():
     # Query the Measurement table for date and precipitation fields
-    results = session.query(Measurement.date, Measurement.pcrp).all()
+    results = session.query(Measurement.date, Measurement.prcp).all()
 
     # Transform result, list of tuples, into a dictionary
-    precip_dict = {date: pcrp for date, pcrp in results}
+    precip_dict = {date: prcp for date, prcp in results}
 
     # Convert the dictionary into a JSON response
     return jsonify(precip_dict)
@@ -65,10 +65,55 @@ def precipitation():
 # Define the Stations function
 @app.route("/api/v1.0/stations")
 def stations():
-     # Here we're querying the Station table for station fields.
+    # Query the Station table for station fields.
+    results = session.query(Station.station).all()
 
-    # We're using numpy's ravel method to convert the result (which is a list of tuples) into a list.
+    # Convert the result, another list of tuples, into a list
+    stations = list(np.ravel(results))
 
-    
+    # Convert again to JSON response
+    return jsonify(stations)
 
+# Define Tobs function
+@app.route("/api/v1.0/tobs")
+def tobs():
+
+    # Query the Measurement table for the tobs field for the most active station
+    results = session.query(Measurement.tobs).filter(Measurement.station == 'USC00519281').all()
+   
+    # transform again such that the function returns a JSON-ified result
+    tobs = list(np.ravel(results))
+    return jsonify(tobs)
+
+
+
+# Define Start function as a dynamic route that uses the input date in the query function
+@app.route("/api/v1.0/<start>")
+def start_date(start):
+    # Query the Measurement table for min, average, and max, but only for dates greater/
+    # equal to the start date
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), 
+                func.max(Measurement.tobs)).filter(Measurement.date >= start).all()
+
+    # Return results as JSON
+    temperatures = list(np.ravel(results))
+    return jsonify(temperatures)
+
+
+# Define Start/End function as a dynamic route that uses the input date range in the 
+# query function
+@app.route("/api/v1.0/<start><end>")
+def start_end_date(start, end):
+
+    # Query the Measurement table for min, average, and max, but only for dates between 
+    # start and end date 
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs),
+                func.max(Measurement.tobs)).filter(Measurement.date <= start).filter(Measurement.date <= end).all()
+
+    temperatures = list(np.ravel(results))
+    return jsonify(temperatures)
+
+# This is the entry point of the app
+if __name__  == '__main__':
+    app.run(debug=True)
 #################################################
